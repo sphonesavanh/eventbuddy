@@ -1,0 +1,15 @@
+# Flutter
+front/build/
+front/.dart_tool/
+front/.packages
+front/.flutter-plugins
+front/.idea/
+front/.vscode/
+front/.env
+
+# Node.js
+back/node_modules/
+back/.env
+
+# General
+.DS_Store
