@@ -1,6 +1,10 @@
 import 'package:eventbuddy_app/screens/event_detail_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../api/api_service.dart';
+import '../models/event_model.dart';
+import '../providers/user_provider.dart';
+import '../widgets/event_card.dart';
 
 class MyEventsScreen extends StatefulWidget {
   const MyEventsScreen({super.key});
@@ -11,95 +15,101 @@ class MyEventsScreen extends StatefulWidget {
 }
 
 class _MyEventsScreenState extends State<MyEventsScreen> {
-  List<dynamic> _mine = []; // ✅ Stores the user's events
+  List<Event> _myEvents = [];
   bool _loading = true;
+  User? _currentUser;
 
   @override
-  void initState() {
-    super.initState();
-    _loadMine();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_currentUser == null) {
+      // ✅ Access UserProvider safely here
+      final userProvider = Provider.of<UserProvider>(
+        context,
+        listen: false,
+      );
+      _currentUser = userProvider.currentUser;
+
+      if (_currentUser != null) {
+        _loadMyEvents(_currentUser!);
+      } else {
+        setState(() => _loading = false);
+      }
+    }
   }
 
-  Future<void> _loadMine() async {
+  Future<void> _loadMyEvents(User user) async {
     try {
-      final events = await ApiService.getEvents(
-        // You can pass email or userId if your API needs it
+      final events = await ApiService.getEventsByUser(
+        user.email,
       );
       setState(() {
-        _mine = events; // ✅ Store fetched events into _mine
+        _myEvents = events;
+        _loading = false;
       });
     } catch (e) {
-      // You might want to show an error message here
-      debugPrint('Failed to load events: $e');
-    } finally {
+      debugPrint('Failed to load user events: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to load your events.'),
+          ),
+        );
+      }
       setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child:
-            _mine.isEmpty
-                ? const Center(
-                  child: Text(
-                    'You have not created any events yet.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+      child:
+          _loading
+              ? const Center(
+                child: CircularProgressIndicator(),
+              )
+              : _currentUser == null
+              ? const Center(
+                child: Text(
+                  'You are not logged in.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
                   ),
-                )
-                : ListView.builder(
-                  itemCount:
-                      _mine
-                          .length, // ✅ Use _mine instead of events
-                  itemBuilder: (context, index) {
-                    final event =
-                        _mine[index]; // ✅ Correct variable
-                    return ListTile(
-                      title: Text(event['title']),
-                      subtitle: Text(event['date']),
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                      ),
-                      onTap: () {
-                        final eventId = event['event_id'];
-                        if (eventId != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => EventDetailScreen(
-                                    eventId: eventId,
-                                  ),
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'This event has no ID!',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    );
-                  },
                 ),
-      ),
+              )
+              : _myEvents.isEmpty
+              ? const Center(
+                child: Text(
+                  'You have not created any events yet.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+              )
+              : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _myEvents.length,
+                itemBuilder: (context, index) {
+                  final event = _myEvents[index];
+                  return EventCard(
+                    event: event,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => EventDetailScreen(
+                                eventId: event.eventId,
+                              ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
     );
   }
 }

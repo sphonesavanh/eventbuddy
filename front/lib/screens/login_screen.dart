@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:eventbuddy_app/api/api_service.dart';
+import '../providers/user_provider.dart';
 import '../screens/home_screen.dart';
 import 'signup_screen.dart';
+import 'package:eventbuddy_app/models/user.dart' as model;
+import 'package:eventbuddy_app/providers/user_provider.dart'
+    as provider;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -35,14 +40,34 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     try {
-      final success = await ApiService.login(
+      // Call API to login and get user details
+      final model.User? user = await ApiService.login(
         email,
         password,
       );
-      if (success) {
+
+      if (user != null) {
+        // ✅ Save user details to UserProvider
+        final userProvider = Provider.of<UserProvider>(
+          context,
+          listen: false,
+        );
+        userProvider.setUser(
+          provider.User(
+            email: user.email,
+            name: user.name,
+            userId: user.userId,
+          ),
+        );
+
+        // ✅ Save user details to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
-        await prefs.setString('email', email);
+        await prefs.setString('user_email', user.email);
+        await prefs.setString('user_name', user.name);
+        await prefs.setInt('user_id', user.userId);
+
+        // ✅ Navigate to HomeScreen
         if (context.mounted) {
           Navigator.pushReplacement(
             context,
@@ -87,10 +112,10 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // App Logo (replace with Image.asset if you have one)
-                  const Icon(
-                    Icons.event_note,
-                    size: 80,
+                  Image.asset(
+                    'assets/logo.png',
+                    width: 120,
+                    height: 120,
                     color: Colors.white,
                   ),
                   const SizedBox(height: 16),
@@ -103,7 +128,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 48),
-
                   // Email Field
                   TextField(
                     controller: _emailController,
@@ -130,7 +154,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 16),
-
                   // Password Field
                   TextField(
                     controller: _passwordController,
@@ -156,7 +179,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
                   // Login Button
                   SizedBox(
                     width: double.infinity,
@@ -190,7 +212,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   if (_errorMessage != null)
                     Text(
                       _errorMessage!,
@@ -199,7 +220,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   const SizedBox(height: 32),
-
                   Row(
                     mainAxisAlignment:
                         MainAxisAlignment.center,

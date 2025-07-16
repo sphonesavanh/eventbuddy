@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 const authRoutes = require("./routes/authRoute");
 const eventRoutes = require("./routes/eventRoute");
@@ -17,6 +18,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/users", userRoutes);
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Global error handler
 app.use(errorHandler);

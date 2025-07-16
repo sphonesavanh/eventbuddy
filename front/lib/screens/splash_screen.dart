@@ -15,7 +15,10 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLogin();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLogin();
+    });
   }
 
   Future<void> _checkLogin() async {
@@ -23,7 +26,13 @@ class _SplashScreenState extends State<SplashScreen> {
       context,
       listen: false,
     );
+
+    // Optional: show splash for at least 1 second
+    await Future.delayed(const Duration(seconds: 5));
+
     await authProvider.loadToken();
+
+    if (!mounted) return;
 
     if (authProvider.isAuthenticated) {
       Navigator.pushReplacement(

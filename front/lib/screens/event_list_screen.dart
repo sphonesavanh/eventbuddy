@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/api_service.dart';
+import '../models/event_model.dart';
+import '../widgets/event_card.dart';
 import 'event_detail_screen.dart';
 
 class EventListScreen extends StatefulWidget {
@@ -11,7 +13,7 @@ class EventListScreen extends StatefulWidget {
 }
 
 class _EventListScreenState extends State<EventListScreen> {
-  List<Map<String, dynamic>> _events = [];
+  List<Event> _events = [];
   bool _isLoading = true;
 
   @override
@@ -23,15 +25,8 @@ class _EventListScreenState extends State<EventListScreen> {
   Future<void> _fetchEvents() async {
     try {
       final events = await ApiService.getEvents(limit: 10);
-      // Filter out events missing 'id'
-      final safeEvents =
-          events
-              .where((e) => e['id'] != null)
-              .cast<Map<String, dynamic>>()
-              .toList();
-
       setState(() {
-        _events = safeEvents;
+        _events = events;
         _isLoading = false;
       });
     } catch (e) {
@@ -39,93 +34,129 @@ class _EventListScreenState extends State<EventListScreen> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to load events.'),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to load events.'),
+          ),
+        );
+      }
     }
   }
 
-  void _openEventDetail(Map<String, dynamic> event) {
-    final eventId = event['id'];
-    if (eventId != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => EventDetailScreen(
-                eventId: eventId as int,
-              ),
-        ),
-      );
-    } else {
-      debugPrint('Event is missing ID: $event');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This event cannot be opened.'),
-        ),
-      );
-    }
+  void _openEventDetail(Event event) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                EventDetailScreen(eventId: event.eventId),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child:
-          _isLoading
-              ? const Center(
-                child: CircularProgressIndicator(),
-              )
-              : _events.isEmpty
-              ? const Center(
-                child: Text(
-                  'No events found.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
+    return Scaffold(
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF4A90E2),
+                Color(0xFF007AFF),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: const Text(
+          'EventBuddy',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.person,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              // Navigate to profile if needed
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child:
+            _isLoading
+                ? const Center(
+                  child: CircularProgressIndicator(),
+                )
+                : _events.isEmpty
+                ? const Center(
+                  child: Text(
+                    'No events found.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
-              )
-              : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _events.length,
-                itemBuilder: (context, index) {
-                  final event = _events[index];
-                  return Card(
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        12,
-                      ),
-                    ),
-                    margin: const EdgeInsets.symmetric(
-                      vertical: 8,
-                    ),
-                    child: ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                      title: Text(
-                        event['title'] ?? 'Untitled Event',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF4A90E2),
-                        ),
-                      ),
-                      subtitle: Text(
-                        event['description'] ?? '',
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                      ),
+                )
+                : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _events.length,
+                  itemBuilder: (context, index) {
+                    final event = _events[index];
+                    return EventCard(
+                      event: event,
                       onTap: () => _openEventDetail(event),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF4A90E2), Color(0xFF007AFF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: BottomNavigationBar(
+          backgroundColor:
+              Colors
+                  .transparent, // Let gradient show through
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white70,
+          type: BottomNavigationBarType.fixed,
+          currentIndex: 0, // You can set this dynamically
+          onTap: (index) {
+            // Add your logic for switching screens
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.event),
+              label: 'Events',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.add),
+              label: 'Create',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.event_available),
+              label: 'My Events',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

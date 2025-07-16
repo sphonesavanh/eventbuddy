@@ -4,11 +4,15 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/splash_screen.dart';
 import 'providers/auth_provider.dart';
+import 'providers/user_provider.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
       child: const EventBuddyApp(),
     ),
   );
@@ -31,7 +35,6 @@ class _EventBuddyAppState extends State<EventBuddyApp> {
     _checkLoginStatus();
   }
 
-  /// ← Add this method:
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     // adjust the key name to whatever you’re using

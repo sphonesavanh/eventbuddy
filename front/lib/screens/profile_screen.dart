@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 import '../api/api_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -14,6 +16,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String name = '';
   String email = '';
   String firstjoined = '';
+  String? profilePictureUrl; // Network image URL
+
+  File? _localProfileImage; // Local picked image
+  final ImagePicker _picker = ImagePicker();
 
   final TextEditingController _nameController =
       TextEditingController();
@@ -33,30 +39,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserProfile() async {
     SharedPreferences prefs =
         await SharedPreferences.getInstance();
-    String? savedEmail = prefs.getString('email');
+    String? savedEmail = prefs.getString('user_email');
 
     if (savedEmail != null) {
       final user = await ApiService.getUserProfile(
         savedEmail,
       );
-      if (user.isNotEmpty) {
-        setState(() {
-          name = user['name'] ?? '';
-          email = user['email'] ?? '';
-          if (user['created_at'] != null) {
-            final joinedDate = DateTime.parse(
-              user['created_at'],
-            );
-            firstjoined =
-                '${joinedDate.year}-${joinedDate.month.toString().padLeft(2, '0')}-${joinedDate.day.toString().padLeft(2, '0')}';
-          } else {
-            firstjoined = '';
-          }
-        });
-      }
+      setState(() {
+        name = user['name'] ?? '';
+        email = user['email'] ?? '';
+        if (user['created_at'] != null) {
+          final joinedDate = DateTime.parse(
+            user['created_at'],
+          );
+          firstjoined =
+              '${joinedDate.year}-${joinedDate.month.toString().padLeft(2, '0')}-${joinedDate.day.toString().padLeft(2, '0')}';
+        } else {
+          firstjoined = '';
+        }
+
+        // Load profile picture URL
+        if (user['profile_picture'] != null &&
+            user['profile_picture'].isNotEmpty) {
+          profilePictureUrl =
+              "${ApiService.baseUrl.replaceAll("/api", "")}/uploads/${user['profile_picture']}";
+        } else {
+          profilePictureUrl = null;
+        }
+
+        // Clear local image when reloading from backend
+        _localProfileImage = null;
+      });
     }
   }
 
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (pickedFile != null) {
+      File imageFile = File(pickedFile.path);
+      setState(() {
+        _localProfileImage = imageFile;
+      });
+
+      bool success = await ApiService.uploadProfilePicture(
+        email,
+        imageFile,
+      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Profile picture updated successfully',
+            ),
+          ),
+        );
+        await _loadUserProfile(); // reload to get updated URL
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Failed to upload profile picture',
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   Future<void> _showUpdateDialog() async {
     _nameController.text = name;
@@ -190,15 +242,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 30),
 
-              // Profile picture
-              const CircleAvatar(
-                radius: 50,
-                backgroundColor: Colors.white,
-                child: Icon(
-                  Icons.person,
-                  size: 60,
-                  color: Color(0xFF4A90E2),
-                ),
+              // Profile picture with edit icon
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Colors.white,
+                    backgroundImage:
+                        _localProfileImage != null
+                            ? FileImage(_localProfileImage!)
+                            : (profilePictureUrl != null
+                                    ? NetworkImage(
+                                      profilePictureUrl!,
+                                    )
+                                    : null)
+                                as ImageProvider?,
+                    child:
+                        (_localProfileImage == null &&
+                                profilePictureUrl == null)
+                            ? const Icon(
+                              Icons.person,
+                              size: 60,
+                              color: Color(0xFF4A90E2),
+                            )
+                            : null,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.blueAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(6),
+                        child: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
 
